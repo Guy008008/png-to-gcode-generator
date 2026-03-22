@@ -1,3 +1,9 @@
 @echo off
-cd /d C:\Users\casey\Downloads\javafx-png-to-gcode-starter\javafx-png-to-gcode-starter
-mvn javafx:run
+setlocal
+
+set "SCRIPT_DIR=%~dp0"
+for %%I in ("%SCRIPT_DIR%..") do set "APP_DIR=%%~fI"
+cd /d "%APP_DIR%"
+
+call "%APP_DIR%\Open-PNG-to-GCode.bat"
+exit /b %ERRORLEVEL%
