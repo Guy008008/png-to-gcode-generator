@@ -2,6 +2,8 @@ package com.caseyleonard.pngtogcode.service;
 
 import com.caseyleonard.pngtogcode.model.GenerationSettings;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.FileTime;
@@ -9,10 +11,20 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 public class PipelineService {
+
+    private static final Set<String> SUPPORTED_INPUT_EXTENSIONS = Set.of(
+            "png",
+            "jpg",
+            "jpeg",
+            "tif",
+            "tiff",
+            "bmp"
+    );
 
     private final ToolLocator toolLocator = new ToolLocator();
 
@@ -20,15 +32,18 @@ public class PipelineService {
             throws IOException, InterruptedException {
         validate(settings);
 
+        PreparedInput preparedInput = prepareInput(settings, logSink);
         ToolPaths toolPaths = toolLocator.locate();
         Files.createDirectories(settings.outputDirectory());
-        logSink.accept(ToolLocator.describe(toolPaths));
+
+        try {
+            logSink.accept(ToolLocator.describe(toolPaths));
 
         logSink.accept("Starting native image pipeline...");
-        runCppStage(settings, toolPaths, logSink);
+        runCppStage(preparedInput.pipelineInput(), toolPaths, logSink);
 
         logSink.accept("Moving native output into selected output folder...");
-        moveOutputFolder(settings, logSink);
+        moveOutputFolder(preparedInput.pipelineInput(), settings.outputDirectory(), logSink);
 
         logSink.accept("Looking for newest sequence file...");
         Path sequenceFile = findNewestSequenceFile(settings.outputDirectory());
@@ -37,13 +52,12 @@ public class PipelineService {
         logSink.accept("Starting Python G-code conversion...");
         runPythonStage(settings, toolPaths, sequenceFile, logSink);
 
-        Path gcodeFile = deriveExpectedGcodePath(settings.outputDirectory(), settings);
-        if (!Files.exists(gcodeFile)) {
-            throw new IOException("Python stage finished, but expected G-code file was not found: " + gcodeFile);
+            Path gcodeFile = findNewestGcodeFile(settings.outputDirectory());
+            logSink.accept("Done. G-code created at: " + gcodeFile);
+            return gcodeFile;
+        } finally {
+            cleanupPreparedInput(preparedInput, logSink);
         }
-
-        logSink.accept("Done. G-code created at: " + gcodeFile);
-        return gcodeFile;
     }
 
     public String describeResolvedTools() {
@@ -52,23 +66,68 @@ public class PipelineService {
 
     private void validate(GenerationSettings settings) {
         if (settings.inputPng() == null || !Files.exists(settings.inputPng())) {
-            throw new IllegalArgumentException("Input PNG not found.");
+            throw new IllegalArgumentException("Input image not found.");
+        }
+        String filename = settings.inputPng().getFileName().toString();
+        int dotIndex = filename.lastIndexOf('.');
+        String extension = dotIndex >= 0 ? filename.substring(dotIndex + 1).toLowerCase(Locale.ROOT) : "";
+        if (!SUPPORTED_INPUT_EXTENSIONS.contains(extension)) {
+            throw new IllegalArgumentException(
+                    "Unsupported input image type. Supported formats: PNG, JPG, JPEG, TIF, TIFF, BMP."
+            );
         }
         if (settings.outputDirectory() == null) {
             throw new IllegalArgumentException("Output folder not selected.");
         }
     }
 
-    private void runCppStage(GenerationSettings settings, ToolPaths toolPaths, Consumer<String> logSink)
+    private PreparedInput prepareInput(GenerationSettings settings, Consumer<String> logSink) throws IOException {
+        Path inputPath = settings.inputPng().toAbsolutePath();
+        if ("png".equals(getExtension(inputPath))) {
+            return new PreparedInput(inputPath, null);
+        }
+
+        logSink.accept("Converting input image to PNG for native processing...");
+        BufferedImage sourceImage = ImageIO.read(inputPath.toFile());
+        if (sourceImage == null) {
+            throw new IOException("Unable to read input image format: " + inputPath);
+        }
+
+        Path tempDirectory = Files.createTempDirectory("png-to-gcode-input-");
+        String baseName = stripExtension(inputPath.getFileName().toString());
+        Path convertedPng = tempDirectory.resolve(baseName + ".png");
+
+        if (!ImageIO.write(sourceImage, "png", convertedPng.toFile())) {
+            throw new IOException("Unable to convert input image to PNG: " + inputPath);
+        }
+
+        logSink.accept("Temporary PNG created at: " + convertedPng);
+        return new PreparedInput(convertedPng, tempDirectory);
+    }
+
+    private void cleanupPreparedInput(PreparedInput preparedInput, Consumer<String> logSink) {
+        if (preparedInput.temporaryDirectory() == null) {
+            return;
+        }
+        try {
+            deleteDirectory(preparedInput.temporaryDirectory());
+            logSink.accept("Cleaned up temporary converted input: " + preparedInput.temporaryDirectory());
+        } catch (IOException e) {
+            logSink.accept("WARNING: Failed to delete temporary converted input: " + preparedInput.temporaryDirectory());
+            logSink.accept("WARNING: " + e.getMessage());
+        }
+    }
+
+    private void runCppStage(Path pipelineInput, ToolPaths toolPaths, Consumer<String> logSink)
             throws IOException, InterruptedException {
         List<String> command = List.of(
                 toolPaths.cppExecutable().toAbsolutePath().toString(),
-                settings.inputPng().toAbsolutePath().toString()
+                pipelineInput.toAbsolutePath().toString()
         );
 
         int exit = ProcessUtils.runCommand(
                 command,
-                settings.inputPng().getParent(),
+                pipelineInput.getParent(),
                 line -> logSink.accept("[CPP] " + line)
         );
 
@@ -77,48 +136,48 @@ public class PipelineService {
         }
     }
 
-    private void moveOutputFolder(GenerationSettings settings, Consumer<String> logSink) throws IOException {
-    Path inputDir = settings.inputPng().getParent();
-    String expectedPrefix = settings.inputPng().getFileName().toString() + "_";
+    private void moveOutputFolder(Path pipelineInput, Path outputDirectory, Consumer<String> logSink) throws IOException {
+        Path inputDir = pipelineInput.getParent();
+        String expectedPrefix = pipelineInput.getFileName().toString() + "_";
 
-    logSink.accept("Input dir for native output search: " + inputDir);
-    logSink.accept("Expected native output prefix: " + expectedPrefix);
-    logSink.accept("Selected output dir: " + settings.outputDirectory());
+        logSink.accept("Input dir for native output search: " + inputDir);
+        logSink.accept("Expected native output prefix: " + expectedPrefix);
+        logSink.accept("Selected output dir: " + outputDirectory);
 
     try (var stream = Files.list(inputDir)) {
-        List<Path> candidates = stream
-                .filter(Files::isDirectory)
-                .filter(p -> p.getFileName().toString().startsWith(expectedPrefix))
-                .toList();
+            List<Path> candidates = stream
+                    .filter(Files::isDirectory)
+                    .filter(path -> path.getFileName().toString().startsWith(expectedPrefix))
+                    .toList();
 
         logSink.accept("Native output candidates found: " + candidates.size());
-        for (Path candidate : candidates) {
-            logSink.accept("Candidate: " + candidate);
+            for (Path candidate : candidates) {
+                logSink.accept("Candidate: " + candidate);
+            }
+
+            Path newest = candidates.stream()
+                    .max(Comparator.comparingLong(path -> path.toFile().lastModified()))
+                    .orElseThrow(() -> new IOException(
+                            "No native output folder was found in input directory: " + inputDir));
+
+            Path target = outputDirectory.resolve(newest.getFileName());
+
+            logSink.accept("Chosen native output folder: " + newest);
+            logSink.accept("Copying native output folder to: " + target);
+
+            copyDirectory(newest, target);
+
+            logSink.accept("Copy finished. Verifying target exists...");
+            logSink.accept("Target exists: " + Files.exists(target));
+
+            deleteDirectory(newest);
+
+            logSink.accept("Delete finished. Source still exists: " + Files.exists(newest));
+            logSink.accept("Move complete.");
         }
-
-        Path newest = candidates.stream()
-                .max((a, b) -> Long.compare(a.toFile().lastModified(), b.toFile().lastModified()))
-                .orElseThrow(() -> new IOException(
-                        "No native output folder was found in input directory: " + inputDir));
-
-        Path target = settings.outputDirectory().resolve(newest.getFileName());
-
-        logSink.accept("Chosen native output folder: " + newest);
-        logSink.accept("Copying native output folder to: " + target);
-
-        copyDirectory(newest, target);
-
-        logSink.accept("Copy finished. Verifying target exists...");
-        logSink.accept("Target exists: " + Files.exists(target));
-
-        deleteDirectory(newest);
-
-        logSink.accept("Delete finished. Source still exists: " + Files.exists(newest));
-        logSink.accept("Move complete.");
-    }
     
 }
-        private void copyDirectory(Path source, Path target) throws IOException {
+    private void copyDirectory(Path source, Path target) throws IOException {
         try (Stream<Path> walk = Files.walk(source)) {
             for (Path path : walk.toList()) {
                 Path relative = source.relativize(path);
@@ -153,6 +212,18 @@ public class PipelineService {
                     .max(Comparator.comparing(this::lastModifiedSafe))
                     .orElseThrow(() -> new IOException(
                             "No sequence text file was found. Make sure the native app wrote its output into the selected output folder."));
+        }
+    }
+
+    private Path findNewestGcodeFile(Path outputDirectory) throws IOException {
+        Path generatedOutputDirectory = outputDirectory.resolve("output");
+        try (Stream<Path> stream = Files.walk(generatedOutputDirectory, 2)) {
+            return stream
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".gcode"))
+                    .max(Comparator.comparing(this::lastModifiedSafe))
+                    .orElseThrow(() -> new IOException(
+                            "Python stage finished, but no G-code file was found in: " + generatedOutputDirectory));
         }
     }
 
@@ -200,12 +271,23 @@ public class PipelineService {
         }
     }
 
-    private Path deriveExpectedGcodePath(Path outputDirectory, GenerationSettings settings) {
-        String baseName = settings.inputPng().getFileName().toString();
-        int dot = baseName.lastIndexOf('.');
-        if (dot > 0) {
-            baseName = baseName.substring(0, dot);
+    private String getExtension(Path path) {
+        String filename = path.getFileName().toString();
+        int dotIndex = filename.lastIndexOf('.');
+        if (dotIndex < 0 || dotIndex == filename.length() - 1) {
+            return "";
         }
-        return outputDirectory.resolve("output").resolve(baseName + "_smooth.gcode");
+        return filename.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
+    }
+
+    private String stripExtension(String filename) {
+        int dotIndex = filename.lastIndexOf('.');
+        if (dotIndex <= 0) {
+            return filename;
+        }
+        return filename.substring(0, dotIndex);
+    }
+
+    private record PreparedInput(Path pipelineInput, Path temporaryDirectory) {
     }
 }
