@@ -23,8 +23,8 @@
                 <Insets top="18" right="18" bottom="18" left="18"/>
             </padding>
 
-            <Label text="PNG to G-code Generator" styleClass="title-label"/>
-            <Label text="Pick a PNG and an output folder, then generate G-code. The app now auto-finds the bundled C++ exe and Python script in the tools folder." styleClass="subtitle-label" wrapText="true"/>
+            <Label text="Image to G-code Generator" styleClass="title-label"/>
+            <Label text="Pick a supported image file and an output folder, then generate G-code. The app now auto-finds the bundled C++ exe and Python script in the tools folder." styleClass="subtitle-label" wrapText="true"/>
             <Label fx:id="toolsStatusLabel" wrapText="true" styleClass="subtitle-label"/>
 
             <GridPane hgap="10" vgap="10">
@@ -34,8 +34,8 @@
                     <ColumnConstraints minWidth="120" prefWidth="120"/>
                 </columnConstraints>
 
-                <Label text="Input PNG" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                <TextField fx:id="pngField" promptText="Select a PNG file..." GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                <Label text="Input Image" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                <TextField fx:id="pngField" promptText="Select a PNG, JPG, TIFF, or BMP file..." GridPane.rowIndex="0" GridPane.columnIndex="1"/>
                 <Button text="Browse" onAction="#onBrowsePng" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
 
                 <Label text="Output Folder" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
