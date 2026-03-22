@@ -1,7 +1,7 @@
-C:\javafx-png-to-gcode-auto-tools\javafx-png-to-gcode-starter\src\main\java\com\caseyleonard\pngtogcode\service\ProcessUtils.java
-C:\javafx-png-to-gcode-auto-tools\javafx-png-to-gcode-starter\src\main\java\com\caseyleonard\pngtogcode\service\PipelineService.java
-C:\javafx-png-to-gcode-auto-tools\javafx-png-to-gcode-starter\src\main\java\com\caseyleonard\pngtogcode\MainApp.java
-C:\javafx-png-to-gcode-auto-tools\javafx-png-to-gcode-starter\src\main\java\com\caseyleonard\pngtogcode\model\GenerationSettings.java
-C:\javafx-png-to-gcode-auto-tools\javafx-png-to-gcode-starter\src\main\java\com\caseyleonard\pngtogcode\service\ToolPaths.java
-C:\javafx-png-to-gcode-auto-tools\javafx-png-to-gcode-starter\src\main\java\com\caseyleonard\pngtogcode\MainController.java
-C:\javafx-png-to-gcode-auto-tools\javafx-png-to-gcode-starter\src\main\java\com\caseyleonard\pngtogcode\service\ToolLocator.java
+C:\Users\casey\OneDrive\Documents\GitHub\png-to-gcode-generator\src\main\java\com\caseyleonard\pngtogcode\service\ToolPaths.java
+C:\Users\casey\OneDrive\Documents\GitHub\png-to-gcode-generator\src\main\java\com\caseyleonard\pngtogcode\model\GenerationSettings.java
+C:\Users\casey\OneDrive\Documents\GitHub\png-to-gcode-generator\src\main\java\com\caseyleonard\pngtogcode\service\PipelineService.java
+C:\Users\casey\OneDrive\Documents\GitHub\png-to-gcode-generator\src\main\java\com\caseyleonard\pngtogcode\service\ProcessUtils.java
+C:\Users\casey\OneDrive\Documents\GitHub\png-to-gcode-generator\src\main\java\com\caseyleonard\pngtogcode\MainApp.java
+C:\Users\casey\OneDrive\Documents\GitHub\png-to-gcode-generator\src\main\java\com\caseyleonard\pngtogcode\service\ToolLocator.java
+C:\Users\casey\OneDrive\Documents\GitHub\png-to-gcode-generator\src\main\java\com\caseyleonard\pngtogcode\MainController.java
