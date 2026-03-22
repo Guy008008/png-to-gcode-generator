@@ -35,22 +35,23 @@ public class PipelineService {
         PreparedInput preparedInput = prepareInput(settings, logSink);
         ToolPaths toolPaths = toolLocator.locate();
         Files.createDirectories(settings.outputDirectory());
+        Set<Path> directoriesBeforeRun = listDirectories(preparedInput.pipelineInput().getParent());
 
         try {
             logSink.accept(ToolLocator.describe(toolPaths));
 
-        logSink.accept("Starting native image pipeline...");
-        runCppStage(preparedInput.pipelineInput(), toolPaths, logSink);
+            logSink.accept("Starting native image pipeline...");
+            runCppStage(preparedInput.pipelineInput(), toolPaths, logSink);
 
-        logSink.accept("Moving native output into selected output folder...");
-        moveOutputFolder(preparedInput.pipelineInput(), settings.outputDirectory(), logSink);
+            logSink.accept("Moving native output into selected output folder...");
+            moveOutputFolder(preparedInput.pipelineInput(), settings.outputDirectory(), directoriesBeforeRun, logSink);
 
-        logSink.accept("Looking for newest sequence file...");
-        Path sequenceFile = findNewestSequenceFile(settings.outputDirectory());
-        logSink.accept("Sequence file found: " + sequenceFile);
+            logSink.accept("Looking for newest sequence file...");
+            Path sequenceFile = findNewestSequenceFile(settings.outputDirectory());
+            logSink.accept("Sequence file found: " + sequenceFile);
 
-        logSink.accept("Starting Python G-code conversion...");
-        runPythonStage(settings, toolPaths, sequenceFile, logSink);
+            logSink.accept("Starting Python G-code conversion...");
+            runPythonStage(settings, toolPaths, sequenceFile, logSink);
 
             Path gcodeFile = findNewestGcodeFile(settings.outputDirectory());
             logSink.accept("Done. G-code created at: " + gcodeFile);
@@ -94,8 +95,7 @@ public class PipelineService {
         }
 
         Path tempDirectory = Files.createTempDirectory("png-to-gcode-input-");
-        String baseName = stripExtension(inputPath.getFileName().toString());
-        Path convertedPng = tempDirectory.resolve(baseName + ".png");
+        Path convertedPng = tempDirectory.resolve("pipeline-input.png");
 
         if (!ImageIO.write(sourceImage, "png", convertedPng.toFile())) {
             throw new IOException("Unable to convert input image to PNG: " + inputPath);
@@ -136,7 +136,10 @@ public class PipelineService {
         }
     }
 
-    private void moveOutputFolder(Path pipelineInput, Path outputDirectory, Consumer<String> logSink) throws IOException {
+    private void moveOutputFolder(Path pipelineInput,
+                                  Path outputDirectory,
+                                  Set<Path> directoriesBeforeRun,
+                                  Consumer<String> logSink) throws IOException {
         Path inputDir = pipelineInput.getParent();
         String expectedPrefix = pipelineInput.getFileName().toString() + "_";
 
@@ -144,39 +147,62 @@ public class PipelineService {
         logSink.accept("Expected native output prefix: " + expectedPrefix);
         logSink.accept("Selected output dir: " + outputDirectory);
 
-    try (var stream = Files.list(inputDir)) {
-            List<Path> candidates = stream
-                    .filter(Files::isDirectory)
-                    .filter(path -> path.getFileName().toString().startsWith(expectedPrefix))
-                    .toList();
+        List<Path> candidates = findNewDirectories(inputDir, directoriesBeforeRun);
+        if (candidates.isEmpty()) {
+            logSink.accept("No newly created directories detected; falling back to prefix-based search.");
+            try (var stream = Files.list(inputDir)) {
+                candidates = stream
+                        .filter(Files::isDirectory)
+                        .filter(path -> path.getFileName().toString().startsWith(expectedPrefix))
+                        .toList();
+            }
+        }
 
         logSink.accept("Native output candidates found: " + candidates.size());
-            for (Path candidate : candidates) {
-                logSink.accept("Candidate: " + candidate);
-            }
-
-            Path newest = candidates.stream()
-                    .max(Comparator.comparingLong(path -> path.toFile().lastModified()))
-                    .orElseThrow(() -> new IOException(
-                            "No native output folder was found in input directory: " + inputDir));
-
-            Path target = outputDirectory.resolve(newest.getFileName());
-
-            logSink.accept("Chosen native output folder: " + newest);
-            logSink.accept("Copying native output folder to: " + target);
-
-            copyDirectory(newest, target);
-
-            logSink.accept("Copy finished. Verifying target exists...");
-            logSink.accept("Target exists: " + Files.exists(target));
-
-            deleteDirectory(newest);
-
-            logSink.accept("Delete finished. Source still exists: " + Files.exists(newest));
-            logSink.accept("Move complete.");
+        for (Path candidate : candidates) {
+            logSink.accept("Candidate: " + candidate);
         }
-    
-}
+
+        Path newest = candidates.stream()
+                .max(Comparator.comparingLong(path -> path.toFile().lastModified()))
+                .orElseThrow(() -> new IOException(
+                        "No native output folder was found in input directory: " + inputDir));
+
+        Path target = outputDirectory.resolve(newest.getFileName());
+
+        logSink.accept("Chosen native output folder: " + newest);
+        logSink.accept("Copying native output folder to: " + target);
+
+        copyDirectory(newest, target);
+
+        logSink.accept("Copy finished. Verifying target exists...");
+        logSink.accept("Target exists: " + Files.exists(target));
+
+        deleteDirectory(newest);
+
+        logSink.accept("Delete finished. Source still exists: " + Files.exists(newest));
+        logSink.accept("Move complete.");
+    }
+
+    private Set<Path> listDirectories(Path directory) throws IOException {
+        try (Stream<Path> stream = Files.list(directory)) {
+            return stream
+                    .filter(Files::isDirectory)
+                    .map(path -> path.toAbsolutePath().normalize())
+                    .collect(java.util.stream.Collectors.toSet());
+        }
+    }
+
+    private List<Path> findNewDirectories(Path directory, Set<Path> directoriesBeforeRun) throws IOException {
+        try (Stream<Path> stream = Files.list(directory)) {
+            return stream
+                    .filter(Files::isDirectory)
+                    .map(path -> path.toAbsolutePath().normalize())
+                    .filter(path -> !directoriesBeforeRun.contains(path))
+                    .toList();
+        }
+    }
+
     private void copyDirectory(Path source, Path target) throws IOException {
         try (Stream<Path> walk = Files.walk(source)) {
             for (Path path : walk.toList()) {
@@ -278,14 +304,6 @@ public class PipelineService {
             return "";
         }
         return filename.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
-    }
-
-    private String stripExtension(String filename) {
-        int dotIndex = filename.lastIndexOf('.');
-        if (dotIndex <= 0) {
-            return filename;
-        }
-        return filename.substring(0, dotIndex);
     }
 
     private record PreparedInput(Path pipelineInput, Path temporaryDirectory) {
