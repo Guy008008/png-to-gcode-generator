@@ -19,8 +19,18 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.List;
 
 public class MainController {
+
+    private static final List<String> SUPPORTED_IMAGE_EXTENSIONS = List.of(
+            "*.png",
+            "*.jpg",
+            "*.jpeg",
+            "*.tif",
+            "*.tiff",
+            "*.bmp"
+    );
 
     @FXML private TextField pngField;
     @FXML private TextField outputField;
@@ -69,8 +79,14 @@ public class MainController {
     @FXML
     private void onBrowsePng() {
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("Select Input PNG");
-        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Files", "*.png"));
+        chooser.setTitle("Select Input Image");
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Supported Images", SUPPORTED_IMAGE_EXTENSIONS),
+                new FileChooser.ExtensionFilter("PNG Files", "*.png"),
+                new FileChooser.ExtensionFilter("JPEG Files", "*.jpg", "*.jpeg"),
+                new FileChooser.ExtensionFilter("TIFF Files", "*.tif", "*.tiff"),
+                new FileChooser.ExtensionFilter("Bitmap Files", "*.bmp")
+        );
         File file = chooser.showOpenDialog(getStage());
         if (file != null) {
             pngField.setText(file.getAbsolutePath());
