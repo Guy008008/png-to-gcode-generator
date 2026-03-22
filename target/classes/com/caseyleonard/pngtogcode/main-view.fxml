@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.Spinner?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.caseyleonard.pngtogcode.MainController">
+    <center>
+        <VBox spacing="14" styleClass="root-pane">
+            <padding>
+                <Insets top="18" right="18" bottom="18" left="18"/>
+            </padding>
+
+            <Label text="PNG to G-code Generator" styleClass="title-label"/>
+            <Label text="Pick a PNG and an output folder, then generate G-code. The app now auto-finds the bundled C++ exe and Python script in the tools folder." styleClass="subtitle-label" wrapText="true"/>
+            <Label fx:id="toolsStatusLabel" wrapText="true" styleClass="subtitle-label"/>
+
+            <GridPane hgap="10" vgap="10">
+                <columnConstraints>
+                    <ColumnConstraints minWidth="170" prefWidth="170"/>
+                    <ColumnConstraints hgrow="ALWAYS"/>
+                    <ColumnConstraints minWidth="120" prefWidth="120"/>
+                </columnConstraints>
+
+                <Label text="Input PNG" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                <TextField fx:id="pngField" promptText="Select a PNG file..." GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                <Button text="Browse" onAction="#onBrowsePng" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+
+                <Label text="Output Folder" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                <TextField fx:id="outputField" promptText="Choose where sequence/output files should go..." GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                <Button text="Browse" onAction="#onBrowseOutputFolder" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+            </GridPane>
+
+            <Separator/>
+
+            <GridPane hgap="10" vgap="10">
+                <columnConstraints>
+                    <ColumnConstraints minWidth="170" prefWidth="170"/>
+                    <ColumnConstraints hgrow="ALWAYS"/>
+                    <ColumnConstraints hgrow="ALWAYS"/>
+                    <ColumnConstraints hgrow="ALWAYS"/>
+                </columnConstraints>
+
+                <Label text="Resolution" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                <ComboBox fx:id="resolutionCombo" prefWidth="220.0" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                <Label text="Paper Size" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                <ComboBox fx:id="paperSizeCombo" GridPane.rowIndex="0" GridPane.columnIndex="3"/>
+
+                <Label text="Margin (mm)" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                <Spinner fx:id="marginSpinner" editable="true" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                <Label text="XY Feedrate" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+                <TextField fx:id="feedrateField" GridPane.rowIndex="1" GridPane.columnIndex="3"/>
+
+                <Label text="Z Feedrate" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                <TextField fx:id="zFeedrateField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                <Label text="Z Safe" GridPane.rowIndex="2" GridPane.columnIndex="2"/>
+                <TextField fx:id="zSafeField" GridPane.rowIndex="2" GridPane.columnIndex="3"/>
+
+                <Label text="Z Draw" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                <TextField fx:id="zDrawField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                <CheckBox fx:id="saveSvgCheckBox" text="Also save SVG" GridPane.rowIndex="3" GridPane.columnIndex="3"/>
+            </GridPane>
+
+            <HBox spacing="12">
+                <Button fx:id="generateButton" text="Generate G-code" onAction="#onGenerate" styleClass="primary-button"/>
+                <Label text="Status:"/>
+                <Label fx:id="statusLabel" styleClass="status-label"/>
+            </HBox>
+
+            <VBox spacing="6" VBox.vgrow="ALWAYS">
+                <Label text="Run Log"/>
+                <TextArea fx:id="logArea" wrapText="true" editable="false" VBox.vgrow="ALWAYS"/>
+            </VBox>
+        </VBox>
+    </center>
+</BorderPane>

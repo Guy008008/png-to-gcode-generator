@@ -1,0 +1,8 @@
+com\caseyleonard\pngtogcode\service\ProcessUtils.class
+com\caseyleonard\pngtogcode\service\ToolLocator.class
+com\caseyleonard\pngtogcode\model\GenerationSettings.class
+com\caseyleonard\pngtogcode\MainController$1.class
+com\caseyleonard\pngtogcode\service\PipelineService.class
+com\caseyleonard\pngtogcode\MainController.class
+com\caseyleonard\pngtogcode\MainApp.class
+com\caseyleonard\pngtogcode\service\ToolPaths.class

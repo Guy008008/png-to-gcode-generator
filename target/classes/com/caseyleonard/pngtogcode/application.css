@@ -1,0 +1,32 @@
+.root-pane {
+    -fx-background-color: linear-gradient(to bottom, #111827, #1f2937);
+}
+
+.label {
+    -fx-text-fill: #f3f4f6;
+}
+
+.title-label {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+}
+
+.subtitle-label {
+    -fx-text-fill: #cbd5e1;
+}
+
+.text-field, .combo-box, .spinner, .text-area {
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+}
+
+.primary-button {
+    -fx-background-color: #2563eb;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 8px;
+}
+
+.status-label {
+    -fx-font-weight: bold;
+}
