@@ -1,18 +1,19 @@
 package com.caseyleonard.pngtogcode.service;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class ToolLocator {
 
     public ToolPaths locate() {
         Path appDir = detectAppDirectory();
-        Path toolsDir = Path.of("tools").toAbsolutePath().normalize();
+        Path toolsDir = locateToolsDirectory(appDir);
         Path cppExe = locateCppExecutable(toolsDir);
         Path pythonScript = locatePythonScript(toolsDir);
         Path pythonExe = locatePythonExecutable();
@@ -29,6 +30,37 @@ public class ToolLocator {
         } catch (Exception e) {
             return Paths.get(System.getProperty("user.dir", ".")).toAbsolutePath().normalize();
         }
+    }
+
+    private Path locateToolsDirectory(Path appDir) {
+        for (Path candidate : candidateToolsDirectories(appDir)) {
+            if (Files.isDirectory(candidate)) {
+                return candidate;
+            }
+        }
+
+        Path fallback = Path.of("tools").toAbsolutePath().normalize();
+        throw new IllegalStateException("Missing tools folder. Expected one of: " + candidateToolsDirectories(appDir) + " | Current fallback: " + fallback);
+    }
+
+    private List<Path> candidateToolsDirectories(Path appDir) {
+        Set<Path> candidates = new LinkedHashSet<>();
+        Path currentDir = Paths.get(System.getProperty("user.dir", ".")).toAbsolutePath().normalize();
+
+        candidates.add(currentDir.resolve("tools").normalize());
+        candidates.add(appDir.resolve("tools").normalize());
+
+        Path parent = appDir.getParent();
+        if (parent != null) {
+            candidates.add(parent.resolve("tools").normalize());
+
+            Path grandParent = parent.getParent();
+            if (grandParent != null) {
+                candidates.add(grandParent.resolve("tools").normalize());
+            }
+        }
+
+        return List.copyOf(candidates);
     }
 
     private Path locateCppExecutable(Path toolsDir) {
